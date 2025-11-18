@@ -1,8 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
-import Hero from './components/Hero'
-import EpisodeCard from './components/EpisodeCard'
+import { Routes, Route, useNavigate } from 'react-router-dom'
+import Navbar from './components/Navbar'
+import NetflixHero from './components/NetflixHero'
+import Row from './components/Rows'
 import EpisodeForm from './components/EpisodeForm'
+import EpisodeDetails from './components/EpisodeDetails'
 import SeasonModal from './components/SeasonModal'
+import Explore from './pages/Explore'
+import SeasonsPage from './pages/Seasons'
+
+function Home({ seasons, episodes, onOpen, onEdit, onDelete }){
+  const spotlight = episodes[0]
+  return (
+    <div>
+      <NetflixHero spotlight={spotlight} onPlay={onOpen} onInfo={onEdit} />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+        <Row title="Continue Watching" items={episodes.slice(0,12)} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
+        <Row title="From your active season" items={episodes.slice(12,24)} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
+      </div>
+    </div>
+  )
+}
 
 function App() {
   const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
@@ -12,6 +30,8 @@ function App() {
   const [showEpisodeModal, setShowEpisodeModal] = useState(false)
   const [editingEpisode, setEditingEpisode] = useState(null)
   const [showSeasonModal, setShowSeasonModal] = useState(false)
+  const [showDetails, setShowDetails] = useState(null)
+  const navigate = useNavigate()
 
   // Fetch seasons and episodes
   useEffect(() => {
@@ -26,10 +46,6 @@ function App() {
     const q = activeSeasonId ? `?season_id=${activeSeasonId}` : ''
     fetch(`${baseUrl}/api/episodes${q}`).then(r => r.json()).then(setEpisodes)
   }, [activeSeasonId])
-
-  const unsortedEpisodes = useMemo(() => {
-    return []
-  }, [episodes])
 
   const openEpisodeForm = (ep = null) => {
     setEditingEpisode(ep)
@@ -63,42 +79,30 @@ function App() {
     setEpisodes(prev => prev.filter(e => e.id !== ep.id))
   }
 
+  const openDetails = (ep) => setShowDetails(ep)
+
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_20%_10%,#a78bfa33_0%,transparent_30%),radial-gradient(circle_at_80%_0%,#f59e0b33_0%,transparent_25%)] from-amber-50 to-white">
-      <div className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6">
-        <Hero
-          seasons={seasons}
-          activeSeasonId={activeSeasonId}
-          onChangeSeason={setActiveSeasonId}
-          onCreateSeason={() => setShowSeasonModal(true)}
-          onOpenEpisodeForm={() => openEpisodeForm(null)}
-        />
+    <div className="min-h-screen bg-black text-white">
+      <Navbar
+        seasons={seasons}
+        activeSeasonId={activeSeasonId}
+        onChangeSeason={setActiveSeasonId}
+        onCreateSeason={() => setShowSeasonModal(true)}
+        onCreateEpisode={() => openEpisodeForm(null)}
+      />
 
-        {/* Episodes grid */}
-        <div className="mt-2">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-semibold text-gray-800">Episodes</h2>
-            <button onClick={() => openEpisodeForm(null)} className="text-sm text-amber-700 hover:underline">+ New Episode</button>
-          </div>
-          {episodes.length === 0 ? (
-            <div className="text-gray-600 bg-white/60 border border-black/10 rounded-2xl p-6">No episodes yet. Start by creating one!</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {episodes.map(ep => (
-                <EpisodeCard key={ep.id} episode={ep} onOpen={() => {}} onEdit={openEpisodeForm} onDelete={deleteEpisode} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <Routes>
+        <Route path="/" element={<Home seasons={seasons} episodes={episodes} onOpen={openDetails} onEdit={openEpisodeForm} onDelete={deleteEpisode} />} />
+        <Route path="/explore" element={<Explore onOpen={openDetails} onEdit={openEpisodeForm} />} />
+        <Route path="/seasons" element={<SeasonsPage seasons={seasons} onCreateSeason={()=> setShowSeasonModal(true)} onSelect={(id)=> setActiveSeasonId(id)} />} />
+      </Routes>
 
-      {/* Episode Modal */}
       {showEpisodeModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-zinc-950 rounded-2xl border border-white/10 w-full max-w-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-semibold">{editingEpisode ? 'Edit Episode' : 'New Episode'}</h3>
-              <button onClick={() => setShowEpisodeModal(false)} className="text-sm text-gray-500 hover:underline">Close</button>
+              <button onClick={() => setShowEpisodeModal(false)} className="text-sm text-white/70 hover:text-white">Close</button>
             </div>
             <EpisodeForm
               initial={editingEpisode}
@@ -111,9 +115,12 @@ function App() {
         </div>
       )}
 
-      {/* Season Modal */}
       {showSeasonModal && (
         <SeasonModal onClose={() => setShowSeasonModal(false)} onCreate={createSeason} />
+      )}
+
+      {showDetails && (
+        <EpisodeDetails episode={showDetails} onClose={()=> setShowDetails(null)} />
       )}
     </div>
   )
